@@ -5,7 +5,8 @@ pgrep -x "web" > /dev/null
 
 # 如果没有运行，则启动 vmess
 if [ $? -ne 0 ]; then
-    nohup /home/${USER}/.vmess/web run -c /home/${USER}/.vmess/config.json >/dev/null 2>&1 &
+    #nohup /home/${USER}/.vmess/web run -c /home/${USER}/.vmess/config.json >/dev/null 2>&1 &
+	nohup /home/${USER}/.vmess/web run -c /home/${USER}/.vmess/config.json > /home/${USER}/.vmess/test.log 2>&1 &
 fi
 
 # 接收用户传入的参数（端口、字符串或json格式内容）
