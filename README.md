@@ -10,7 +10,8 @@
 # 免费serv00服务器一键脚本部署VMess
 
 ## [视频教程](https://youtu.be/6UZXHfc3zEU)
-
+## [青龙保活教程](https://youtu.be/J4lcIwBowmM)
+## [GitHub Actions保活教程](https://youtu.be/zkGGklEaO2I)
 
 # 部署教程：
 
