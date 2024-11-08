@@ -51,7 +51,17 @@ ssh <username>@<panel>.serv00.com
 ```
 bash <(curl -Ls https://raw.githubusercontent.com/amclubs/am-serv00-vmess/main/install_serv00_vmess.sh)
 ```
+- 指定UUID安装(<UUID> 要换成你要生成的UUID) [在线获取UUID](https://1024tools.com/uuid) 
+```
+bash <(curl -Ls https://raw.githubusercontent.com/amclubs/am-serv00-vmess/main/install_serv00_vmess.sh <UUID>)
+```
+- 例如:
+```
+bash <(curl -Ls https://raw.githubusercontent.com/amclubs/am-serv00-vmess/main/install_serv00_vmess.sh df4abc6a-5a79-4104-93c9-250756008e9b)
+```
 
+- [青龙保活教程](https://youtu.be/J4lcIwBowmM)
+- [GitHub Actions保活教程](https://youtu.be/zkGGklEaO2I)
 - 3、保活命令（有时母鸡重启后，会删除所有进程和定时任务，所以要手工重新执行下面保活命令，让定时任务生效，不要问为什么，因为是免费的后遗证）
 ```
 (crontab -l; echo "*/12 * * * * pgrep -x "web" > /dev/null || nohup /home/${USER}/.vmess/web run -c /home/${USER}/.vmess/config.json >/dev/null 2>&1 &") | crontab -
