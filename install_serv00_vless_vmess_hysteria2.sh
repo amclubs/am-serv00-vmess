@@ -29,7 +29,66 @@ export ARGO_AUTH=${ARGO_AUTH:-''}
 [[ "$HOSTNAME" == "s1.ct8.pl" ]] && WORKDIR="/home/${USERNAME}/.vmess" || WORKDIR="/home/${USERNAME}/.vmess"
 [ -d "$WORKDIR" ] || (mkdir -p "$WORKDIR" && chmod 777 "$WORKDIR")
 
+
+read_ip() {
+    echo "\n"
+    cat ip.txt
+    reading "请输入上面可选IP中的任意一个 (回车默认选择): " IP
+    if [[ -z "$IP" ]]; then
+        IP=$(grep -m 1 "正常" ip.txt | awk -F ':' '{print $1}')
+        if [ -z "$IP" ]; then
+            IP=$(head -n 1 ip.txt | awk -F ':' '{print $1}')
+        fi
+    fi
+    green "您选择的IP为: $IP"
+}
+
+read_ym() {
+    echo "\n"
+    echo "--------------------"
+    yellow "1. Cloudflare 默认域名，支持 PROXYIP 变量功能 (推荐)"
+    yellow "2. serv00 默认域名 (推荐)"
+    yellow "回车默认选择1"
+    echo "--------------------"
+
+    reading "请输入reality域名或输入选择 (1-2): " ym
+
+    if [[ -z "$ym" || "$ym" == "1" ]]; then
+	ym="cdnjs.cloudflare.com"
+    elif [[ "$ym" == "2" ]]; then
+	ym="$USERNAME.serv00.net"
+    elif [[ "$ym" != "1" && "$ym" != "2" && ! "$ym" =~ ^[a-zA-Z0-9.-]+$ ]]; then
+	yellow "无效输入，使用默认 Cloudflare 域名"
+	ym="cdnjs.cloudflare.com"
+    fi
+
+    green "您的 reality 域名为: $ym"
+}
+
+read_uuid() {
+    echo "\n"
+    reading "请输入UUID (回车默认生成): " UUID
+    if [[ -z "$UUID" ]]; then
+        UUID=$(uuidgen -r)
+    fi
+    green "您的UUID为: $UUID"
+}
+
+read_vless_port() {
+    echo "\n"
+    while true; do
+        reading "请输入vless(reality)端口 (面板开放的tcp端口): " vless_port
+        if [[ "$vless_port" =~ ^[0-9]+$ ]] && [ "$vless_port" -ge 1 ] && [ "$vless_port" -le 65535 ]; then
+            green "你的vless(reality)端口为: $vless_port"
+            break
+        else
+            yellow "输入错误，请重新输入面板开放的TCP端口"
+        fi
+    done
+}
+
 read_vmess_port() {
+    echo "\n"
     while true; do
         reading "请输入vmess端口 (面板开放的tcp端口): " vmess_port
         if [[ "$vmess_port" =~ ^[0-9]+$ ]] && [ "$vmess_port" -ge 1 ] && [ "$vmess_port" -le 65535 ]; then
@@ -41,37 +100,36 @@ read_vmess_port() {
     done
 }
 
-read_nz_variables() {
-  if [ -n "$NEZHA_SERVER" ] && [ -n "$NEZHA_PORT" ] && [ -n "$NEZHA_KEY" ]; then
-      green "使用自定义变量哪吒运行哪吒探针"
-      return
-  else
-      reading "是否需要安装哪吒探针？【y/n】: " nz_choice
-      [[ -z $nz_choice ]] && return
-      [[ "$nz_choice" != "y" && "$nz_choice" != "Y" ]] && return
-      reading "请输入哪吒探针域名或ip：" NEZHA_SERVER
-      green "你的哪吒域名为: $NEZHA_SERVER"
-      reading "请输入哪吒探针端口（回车跳过默认使用5555）：" NEZHA_PORT
-      [[ -z $NEZHA_PORT ]] && NEZHA_PORT="5555"
-      green "你的哪吒端口为: $NEZHA_PORT"
-      reading "请输入哪吒探针密钥：" NEZHA_KEY
-      green "你的哪吒密钥为: $NEZHA_KEY"
-  fi
+read_hysteria2_port() {
+    echo "\n"
+    while true; do
+        reading "请输入hysteria2端口 (面板开放的udp端口): " hysteria2_port
+        if [[ "$hysteria2_port" =~ ^[0-9]+$ ]] && [ "$hysteria2_port" -ge 1 ] && [ "$hysteria2_port" -le 65535 ]; then
+            green "你的hysteria2端口为: $hysteria2_port"
+            break
+        else
+            yellow "输入错误，请重新输入面板开放的UDP端口"
+        fi
+    done
 }
 
 install_singbox() {
-echo -e "${yellow}本脚本安装vmess协议${purple}(vmess-ws)${re}"
-echo -e "${yellow}开始运行前，请确保在面板${purple}已开放1个tcp端口${re}"
-echo -e "${yellow}面板${purple}Additional services中的Run your own applications${yellow}已开启为${purplw}Enabled${yellow}状态${re}"
+echo -e "${yellow}本脚本安装reality、vmess、hysteria2 三协议节点${re}"
+echo -e "${yellow}开始运行前，请确保在面板${purple}已开放 2个tcp端口 1个udp端口${re}"
+echo -e "${yellow}请登录面板查看${purple}Additional services中的Run your own applications${yellow}已开启为${purplw}Enabled${yellow}状态${re}"
 reading "\n确定继续安装吗？【y/n】: " choice
   case "$choice" in
     [Yy])
         cd $WORKDIR
-        # read_nz_variables
+	read_ip
+	read_ym
+	read_uuid
+	read_vless_port
         read_vmess_port
+	read_hysteria2_port
+	download_singbox && wait
 	argo_configure
         generate_config
-        download_singbox && wait
         run_sb && sleep 3
         get_links
       ;;
@@ -161,19 +219,9 @@ EOF
 download_singbox() {
   ARCH=$(uname -m) && DOWNLOAD_DIR="." && mkdir -p "$DOWNLOAD_DIR" && FILE_INFO=()
   if [ "$ARCH" == "arm" ] || [ "$ARCH" == "arm64" ] || [ "$ARCH" == "aarch64" ]; then
-      # if [[ -z $ARGO_AUTH || -z $ARGO_DOMAIN ]]; then
-      # 	FILE_INFO=("https://github.com/ansoncloud8/am-serv00-vmess/releases/download/1.0.0/arm64-sb web")
-      # else
-      	FILE_INFO=("https://github.com/ansoncloud8/am-serv00-vmess/releases/download/1.0.0/arm64-sb web" "https://github.com/ansoncloud8/am-serv00-vmess/releases/download/1.0.0/arm64-bot13 bot")
-      # fi 
-      # FILE_INFO=("https://github.com/ansoncloud8/am-serv00-vmess/releases/download/1.0.0/arm64-sb web" "https://github.com/ansoncloud8/am-serv00-vmess/releases/download/1.0.0/arm64-bot13 bot" "https://github.com/ansoncloud8/am-serv00-vmess/releases/download/1.0.0/arm64-swith npm")
+      	FILE_INFO=("https://github.com/amclubs/am-serv00-vmess/releases/download/1.0.0/arm64-sb web" "https://github.com/amclubs/am-serv00-vmess/releases/download/1.0.0/arm64-bot13 bot")
   elif [ "$ARCH" == "amd64" ] || [ "$ARCH" == "x86_64" ] || [ "$ARCH" == "x86" ]; then
-      # if [[ -z $ARGO_AUTH || -z $ARGO_DOMAIN ]]; then
-      # 	FILE_INFO=("https://github.com/ansoncloud8/am-serv00-vmess/releases/download/1.0.0/amd64-web web")
-      # else
-      	FILE_INFO=("https://github.com/ansoncloud8/am-serv00-vmess/releases/download/1.0.0/amd64-web web" "https://github.com/ansoncloud8/am-serv00-vmess/releases/download/1.0.0/amd64-bot bot")
-      # fi
-      # FILE_INFO=("https://github.com/ansoncloud8/am-serv00-vmess/releases/download/1.0.0/amd64-web web" "https://github.com/ansoncloud8/am-serv00-vmess/releases/download/1.0.0/arm64-bot bot" "https://github.com/ansoncloud8/am-serv00-vmess/releases/download/1.0.0/arm64-npm npm")
+      	FILE_INFO=("https://github.com/amclubs/am-serv00-vmess/releases/download/1.0.0/amd64-web web" "https://github.com/amclubs/am-serv00-vmess/releases/download/1.0.0/amd64-bot bot")
   else
       echo "Unsupported architecture: $ARCH"
       exit 1
@@ -194,6 +242,15 @@ download_singbox() {
 
 # Generating Configuration Files
 generate_config() {
+
+output=$(./web generate reality-keypair)
+private_key=$(echo "${output}" | awk '/PrivateKey:/ {print $2}')
+public_key=$(echo "${output}" | awk '/PublicKey:/ {print $2}')
+echo "${private_key}" > private_key.txt
+echo "${public_key}" > public_key.txt
+
+openssl ecparam -genkey -name prime256v1 -out "private.key"
+openssl req -new -x509 -days 3650 -key "private.key" -out "cert.pem" -subj "/CN=$USERNAME.serv00.net"
 
   cat > config.json << EOF
 {
@@ -237,6 +294,33 @@ generate_config() {
     "disable_expire": false
   },
     "inbounds": [
+   {
+	"tag": "vless-reality-in",
+	"type": "vless",
+	"listen": "::",
+	"listen_port": $vless_port,
+	"users": [
+		{
+			"uuid": "$UUID",
+			"flow": "xtls-rprx-vision"
+		}
+	],
+	"tls": {
+		"enabled": true,
+		"server_name": "$ym",
+		"reality": {
+			"enabled": true,
+			"handshake": {
+				"server": "$ym",
+				"server_port": 443
+			},
+			"private_key": "$private_key",
+			"short_id": [
+					""
+			]
+		}
+	}
+    },
     {
       "tag": "vmess-ws-in",
       "type": "vmess",
@@ -249,9 +333,30 @@ generate_config() {
     ],
     "transport": {
       "type": "ws",
-      "path": "/vmess",
+      "path": "/vmess-argo",
       "early_data_header_name": "Sec-WebSocket-Protocol"
       }
+    },
+				{
+       "tag": "hysteria2-in",
+       "type": "hysteria2",
+       "listen": "$IP",
+       "listen_port": $hysteria2_port,
+       "users": [
+         {
+             "password": "$UUID"
+         }
+     ],
+     "masquerade": "https://www.bing.com",
+     "ignore_client_bandwidth":false,
+     "tls": {
+         "enabled": true,
+         "alpn": [
+             "h3"
+         ],
+         "certificate_path": "cert.pem",
+         "key_path": "private.key"
+        }
     }
  ],
     "outbounds": [
@@ -352,23 +457,6 @@ EOF
 
 # running files
 run_sb() {
-  if [ -e npm ]; then
-    tlsPorts=("443" "8443" "2096" "2087" "2083" "2053")
-    if [[ "${tlsPorts[*]}" =~ "${NEZHA_PORT}" ]]; then
-      NEZHA_TLS="--tls"
-    else
-      NEZHA_TLS=""
-    fi
-    if [ -n "$NEZHA_SERVER" ] && [ -n "$NEZHA_PORT" ] && [ -n "$NEZHA_KEY" ]; then
-        export TMPDIR=$(pwd)
-        nohup ./npm -s ${NEZHA_SERVER}:${NEZHA_PORT} -p ${NEZHA_KEY} ${NEZHA_TLS} >/dev/null 2>&1 &
-	sleep 2
-        pgrep -x "npm" > /dev/null && green "npm is running" || { red "npm is not running, restarting..."; pkill -x "npm" && nohup ./npm -s "${NEZHA_SERVER}:${NEZHA_PORT}" -p "${NEZHA_KEY}" ${NEZHA_TLS} >/dev/null 2>&1 & sleep 2; purple "npm restarted"; }
-    else
-        purple "NEZHA variable is empty,skiping runing"
-    fi
-  fi
-
   if [ -e web ]; then
     nohup ./web run -c config.json >/dev/null 2>&1 &
     sleep 2
@@ -401,19 +489,56 @@ get_links(){
   }
 argodomain=$(get_argodomain)
 echo -e "\e[1;32mArgoDomain:\e[1;35m${argodomain}\e[0m\n"
+if [ -z ${argodomain} ]; then
+red "Argo域名生成失败，Argo节点不可用，可卸载重新安装"
+fi
 sleep 1
 # get ip
-IP=$(curl -s ipv4.ip.sb || { ipv6=$(curl -s --max-time 1 ipv6.ip.sb); echo "[$ipv6]"; })
-sleep 1
+#IP=$(curl -s ipv4.ip.sb || { ipv6=$(curl -s --max-time 1 ipv6.ip.sb); echo "[$ipv6]"; })
+#sleep 1
 # get ipinfo
 ISP=$(curl -s https://speed.cloudflare.com/meta | awk -F\" '{print $26"-"$18}' | sed -e 's/ /_/g') 
+get_name() { if [ "$HOSTNAME" = "s1.ct8.pl" ]; then SERVER="CT8"; else SERVER=$(echo "$HOSTNAME" | cut -d '.' -f 1); fi; echo "$SERVER"; }
+NAME="$ISP-$(get_name)"
+
 sleep 1
 # yellow "注意：v2ray或其他软件的跳过证书验证需设置为true,否则hy2或tuic节点可能不通\n"
+rm -rf tmp.txt
+vless_link="vless://$UUID@$IP:$vless_port?encryption=none&flow=xtls-rprx-vision&security=reality&sni=$ym&fp=chrome&pbk=$public_key&type=tcp&headerType=none#$NAME-vless-reality"
+echo "$vless_link" >> tmp.txt
+vmess_link="vmess://$(echo "{ \"v\": \"2\", \"ps\": \"$NAME-vmess-ws\", \"add\": \"$IP\", \"port\": \"$vmess_port\", \"id\": \"$UUID\", \"aid\": \"0\", \"scy\": \"auto\", \"net\": \"ws\", \"type\": \"none\", \"host\": \"\", \"path\": \"/vmess?ed=2048\", \"tls\": \"\", \"sni\": \"\", \"alpn\": \"\", \"fp\": \"\"}" | base64 -w0)"
+echo "$vmess_link" >> tmp.txt
+vmess_argo_link="vmess://$(echo "{ \"v\": \"2\", \"ps\": \"$NAME-vmess-ws-argo\", \"add\": \"visa.cn\", \"port\": \"80\", \"id\": \"$UUID\", \"aid\": \"0\", \"scy\": \"auto\", \"net\": \"ws\", \"type\": \"none\", \"host\": \"$argodomain\", \"path\": \"/vmess-argo?ed=2048\", \"tls\": \"\"}" | base64 -w0)"
+echo "$vmess_argo_link" >> tmp.txt
+vmess_argo_tls_link="vmess://$(echo "{ \"v\": \"2\", \"ps\": \"$NAME-vmess-ws-tls-argo\", \"add\": \"time.is\", \"port\": \"443\", \"id\": \"$UUID\", \"aid\": \"0\", \"scy\": \"auto\", \"net\": \"ws\", \"type\": \"none\", \"host\": \"$argodomain\", \"path\": \"/vmess-argo?ed=2048\", \"tls\": \"tls\", \"sni\": \"$argodomain\", \"alpn\": \"\", \"fp\": \"\"}" | base64 -w0)"
+echo "$vmess_argo_tls_link" >> tmp.txt
+hysteria2_link="hysteria2://$UUID@$IP:$hysteria2_port?sni=www.bing.com&alpn=h3&insecure=1#$NAME-hysteria2"
+echo "$hysteria2_link" >> tmp.txt
+url=$(cat tmp.txt 2>/dev/null)
+baseurl=$(echo -e "$url" | base64 -w 0)
+echo
+
 cat > list.txt <<EOF
-vmess://$(echo "{ \"v\": \"2\", \"ps\": \"$ISP\", \"add\": \"$IP\", \"port\": \"$vmess_port\", \"id\": \"$UUID\", \"aid\": \"0\", \"scy\": \"none\", \"net\": \"ws\", \"type\": \"none\", \"host\": \"\", \"path\": \"/vmess?ed=2048\", \"tls\": \"\", \"sni\": \"\", \"alpn\": \"\", \"fp\": \"\"}" | base64 -w0)
+======================================================
+1、vless-reality节点（如果是Cloudflare域名，支持 PROXYIP 变量功能，如果serv00的IP被墙，此节点不可用）：
+$vless_link
 
-vmess://$(echo "{ \"v\": \"2\", \"ps\": \"$ISP\", \"add\": \"www.visa.com\", \"port\": \"443\", \"id\": \"$UUID\", \"aid\": \"0\", \"scy\": \"none\", \"net\": \"ws\", \"type\": \"none\", \"host\": \"$argodomain\", \"path\": \"/vmess?ed=2048\", \"tls\": \"tls\", \"sni\": \"$argodomain\", \"alpn\": \"\", \"fp\": \"\"}" | base64 -w0)
+2、vmess节点（如果想使用CF的CDN端口回源(需域名)，客户端地址可修改优选IP/域名，7个80系端口随便换，被墙也能用）：
+$vmess_link
 
+3、vmess_argo节点（CF的隧道节点，客户端地址可修改优选IP/域名，7个80系端口随便换，被墙也能用）：
+$vmess_argo_link
+
+4、vmess_argo_tls节点（CF的隧道节点，客户端地址可修改优选IP/域名，6个443系端口随便换，被墙也能用）：
+$vmess_argo_tls_link
+
+5、hysteria2节点：
+$hysteria2_link
+
+6、所有节点信息：
+$baseurl
+
+======================================================
 EOF
 cat list.txt
 purple "list.txt saved successfully"
@@ -423,38 +548,84 @@ sleep 3
 
 }
 
+get_ip_info() {
+    sn=$(echo "$HOSTNAME" | cut -d '.' -f 1 | tr -d 's')
+    mc=("$HOSTNAME" "cache$sn.serv00.com" "web$sn.serv00.com")
+    rm -rf $WORKDIR/ip.txt
+
+    for mc_item in "${mc[@]}"; do
+        response=$(curl -s "https://pl.amclub.us.kg/api/data?hostname=$mc_item")
+        
+        if [[ -z "$response" || "$response" == *unknown* ]]; then
+            # 如果API请求失败，尝试DNS解析
+            for ip in "${mc[@]}"; do
+                dig @8.8.8.8 +time=2 +short $ip >> $WORKDIR/ip.txt
+                sleep 1
+            done
+            break
+        else
+            # 使用 jq 解析JSON数据并获取第一个IP
+            ip=$(echo "$response" | jq -r '.[0].ip')
+            status=$(echo "$response" | jq -r '.[0].status')
+            
+            if [[ "$status" == "Unblocked" ]]; then
+                echo "$ip: 正常"  >> $WORKDIR/ip.txt
+            else
+                echo "$ip: 已墙"  >> $WORKDIR/ip.txt
+            fi
+        fi
+    done
+}
+
 #主菜单
 menu() {
-   clear
-   echo ""
-   purple "=== serv00 | AM科技 vmess一键安装脚本 ===\n"
-   echo -e "${green}脚本地址：${re}${yellow}https://github.com/eooce/Sing-box${re}\n"
-   echo -e "${green}反馈论坛：${re}${yellow}https://bbs.vps8.me${re}\n"
-   echo -e "${green}TG反馈群组：${re}${yellow}https://t.me/vps888${re}\n"
-   purple "根据老王脚本魔改简化版本，转载请著名出处，请勿滥用\n"
-   echo -e "${green}脚本地址：${re}${yellow}https://github.com/amclubs/am-serv00-vmess${re}\n"
-   echo -e "${green}博客：${re}${yellow}https://am.809098.xyz${re}\n"
-   echo -e "${green}TG反馈群组：${re}${yellow}https://t.me/AM_CLUBS${re}\n"
+    clear
+    echo ""
+    purple "=== serv00 | reality、vmess、hysteria2 三协议节点 一键安装脚本 ===\n"
+    purple "修改自Serv00|ct8老王sing-box安装脚本"
+    purple "根据老王脚本魔改版本，转载请著名出处，请勿滥用\n"
+    echo -e "${green}AM科技 YouTube频道    ：${yellow}https://youtube.com/@AM_CLUB${re}"
+    echo -e "${green}AM科技 GitHub仓库     ：${yellow}https://github.com/amclubs${re}"
+    echo -e "${green}AM科技 个人博客       ：${yellow}https://am.809098.xyz${re}"
+    echo -e "${green}AM科技 TG交流群组     ：${yellow}https://t.me/AM_CLUBS${re}"
+    echo -e "${green}AM科技 脚本视频教程   ：${yellow}https://youtu.be/6UZXHfc3zEU${re}"
+    echo "==============="
+    green "1. 安装sing-box(reality、vmess、hysteria2)"
+    echo "==============="
+    red "2. 卸载sing-box"
+    echo "==============="
+    green "3. 查看节点信息"
+    echo "==============="
+    yellow "4. 清理所有进程"
+    echo "==============="
+    red "5. serv00系统初始化"
+    echo "==============="
+    red "0. 退出脚本"
+    echo "==============="
+    echo "获取serv00服务器IP中......请稍等"
+    echo "--------------------"
+    get_ip_info
+    sn=$(hostname | awk -F '.' '{print $1}')
+    green "serv00名称：$sn"
+    green "可选IP如下(已墙的IP在Argo和CDN回源节点、PROXYIP变量都是可用)："
+    cat $WORKDIR/ip.txt
+    echo "--------------------"
 
-   green "1. 安装sing-box"
-   echo  "==============="
-   red "2. 卸载sing-box"
-   echo  "==============="
-   green "3. 查看节点信息"
-   echo  "==============="
-   yellow "4. 清理所有进程"
-   echo  "==============="
-   red "0. 退出脚本"
-   echo "==========="
-   reading "请输入选择(0-3): " choice
-   echo ""
-    case "${choice}" in
+    # 用户输入选择
+    reading "请输入选择(0-5): " choice
+    echo ""
+    
+    # 根据用户选择执行对应操作
+    case "$choice" in
         1) install_singbox ;;
-        2) uninstall_singbox ;; 
-        3) cat $WORKDIR/list.txt ;; 
-	4) kill_all_tasks ;;
+        2) uninstall_singbox ;;
+        3) cat $WORKDIR/list.txt ;;
+        4) kill_all_tasks ;;
+        5) system_initialize ;;
         0) exit 0 ;;
-        *) red "无效的选项，请输入 0 到 3" ;;
+        *) red "无效的选项，请输入 0 到 5" ;;
     esac
 }
+
+
 menu

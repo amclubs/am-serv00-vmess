@@ -60,35 +60,9 @@ bash <(curl -Ls https://raw.githubusercontent.com/amclubs/am-serv00-vmess/main/i
 bash <(curl -Ls https://raw.githubusercontent.com/amclubs/am-serv00-vmess/main/install_serv00_vmess.sh df4abc6a-5a79-4104-93c9-250756008e9b)
 ```
 
+- 3、保活教程
 - [青龙保活教程](https://youtu.be/J4lcIwBowmM)
 - [GitHub Actions保活教程](https://youtu.be/zkGGklEaO2I)
-- 3、保活命令（有时母鸡重启后，会删除所有进程和定时任务，所以要手工重新执行下面保活命令，让定时任务生效，不要问为什么，因为是免费的后遗证）
-```
-(crontab -l; echo "*/12 * * * * pgrep -x "web" > /dev/null || nohup /home/${USER}/.vmess/web run -c /home/${USER}/.vmess/config.json >/dev/null 2>&1 &") | crontab -
-```
-### 隧道保活命令情况如下
-- 默认隧道保活命令， <你的面板开通端口> 要修改你的端口
-```
-(crontab -l; echo "*/12 * * * * pgrep -x "bot" > /dev/null || nohup /home/${USER}/.vmess/bot tunnel --edge-ip-version auto --no-autoupdate --protocol http2 --logfile /home/${USER}/.vmess/boot.log --loglevel info --url http://localhost:<你的面板开通端口> >/dev/null 2>&1 &") | crontab -
-```
-- token固定隧道保活命令， <ARGO_AUTH> 要修改你的token
-```
-(crontab -l; echo "*/12 * * * * pgrep -x "bot" > /dev/null || nohup /home/${USER}/.vmess/bot tunnel --edge-ip-version auto --no-autoupdate --protocol http2 run --token <ARGO_AUTH> >/dev/null 2>&1 &") | crontab -
-```
-- json固定隧道保活命令
-```
-(crontab -l; echo "*/12 * * * * pgrep -x "bot" > /dev/null || nohup /home/${USER}/.vmess/bot tunnel --edge-ip-version auto --config tunnel.yml run >/dev/null 2>&1 &") | crontab -
-```
-
-
-- 查看保活crontab任务
-```
-crontab -l
-```
-- 上面命令完会显示下面信息就是有保活设置成功
-```
-*/12 * * * * pgrep -x "web" > /dev/null || nohup /home/${USER}/.vmess/web run -c /home/${USER}/.vmess/config.json >/dev/null 2>&1 &
-```
 
 ## 四、测试节点
 - 1、把安装成功返回的节点信息复制到订阅工具里就可以使用
