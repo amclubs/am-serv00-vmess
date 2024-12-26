@@ -47,7 +47,7 @@ Telegram频道：[@AM_CLUBS](https://t.me/AM_CLUBS)
 ssh <username>@<panel>.serv00.com
 ```
 
-- 2、进入到面板后复制下面代码一键安装
+- 2、vmess、Cloudflare隧道Argo+CDN回源节点 一键安装 
 ```
 bash <(curl -Ls https://raw.githubusercontent.com/amclubs/am-serv00-vmess/main/install_serv00_vmess.sh)
 ```
@@ -60,7 +60,12 @@ bash <(curl -Ls https://raw.githubusercontent.com/amclubs/am-serv00-vmess/main/i
 bash <(curl -Ls https://raw.githubusercontent.com/amclubs/am-serv00-vmess/main/install_serv00_vmess.sh df4abc6a-5a79-4104-93c9-250756008e9b)
 ```
 
-- 3、保活教程
+- 3、vless(reality)、vmess、hysteria2三协议节点 、Cloudflare隧道Argo+CDN回源节点 一键安装 
+```
+bash <(curl -Ls https://raw.githubusercontent.com/amclubs/am-serv00-vmess/main/install_serv00_vless_vmess_hysteria2.sh)
+```
+
+- 4、保活教程
 - [青龙保活教程](https://youtu.be/J4lcIwBowmM)
 - [GitHub Actions保活教程](https://youtu.be/zkGGklEaO2I)
 
