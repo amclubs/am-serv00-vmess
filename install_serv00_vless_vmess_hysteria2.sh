@@ -206,6 +206,7 @@ reading "\nserv00系统初始化，清理所有进程并清空所有安装应用
 
 argo_configure() {
   if [[ -z $ARGO_AUTH || -z $ARGO_DOMAIN ]]; then
+		    echo
       reading "是否需要使用固定argo隧道？【y/n】: " argo_choice
       [[ -z $argo_choice ]] && return
       [[ "$argo_choice" != "y" && "$argo_choice" != "Y" && "$argo_choice" != "n" && "$argo_choice" != "N" ]] && { red "无效的选择，请输入y或n"; return; }
@@ -222,6 +223,7 @@ argo_configure() {
         
           # 读取 ARGO_AUTH 变量
           while [[ -z $ARGO_AUTH ]]; do
+										  echo
             reading "请输入argo固定隧道密钥（Json或Token）: " ARGO_AUTH
             if [[ -z $ARGO_AUTH ]]; then
                 red "ARGO固定隧道密钥不能为空，请重新输入。"
@@ -233,6 +235,7 @@ argo_configure() {
    #        green "你的argo固定隧道域名为: $ARGO_DOMAIN"
    #        reading "请输入argo固定隧道密钥（Json或Token）: " ARGO_AUTH
    #        green "你的argo固定隧道密钥为: $ARGO_AUTH"
+			echo
 	  echo -e "${red}注意：${purple}使用token，需要在cloudflare后台设置隧道端口和面板开放的tcp端口一致${re}"
       else
           green "ARGO隧道变量未设置，将使用临时隧道"
@@ -550,7 +553,7 @@ sleep 1
 rm -rf tmp.txt
 vless_link="vless://$UUID@$IP:$vless_port?encryption=none&flow=xtls-rprx-vision&security=reality&sni=$ym&fp=chrome&pbk=$public_key&type=tcp&headerType=none#$NAME-vless-reality"
 echo "$vless_link" >> tmp.txt
-vmess_link="vmess://$(echo "{ \"v\": \"2\", \"ps\": \"$NAME-vmess-ws\", \"add\": \"$IP\", \"port\": \"$vmess_port\", \"id\": \"$UUID\", \"aid\": \"0\", \"scy\": \"auto\", \"net\": \"ws\", \"type\": \"none\", \"host\": \"\", \"path\": \"/vmess?ed=2048\", \"tls\": \"\", \"sni\": \"\", \"alpn\": \"\", \"fp\": \"\"}" | base64 -w0)"
+vmess_link="vmess://$(echo "{ \"v\": \"2\", \"ps\": \"$NAME-vmess-ws\", \"add\": \"$IP\", \"port\": \"$vmess_port\", \"id\": \"$UUID\", \"aid\": \"0\", \"scy\": \"auto\", \"net\": \"ws\", \"type\": \"none\", \"host\": \"\", \"path\": \"/vmess-argo?ed=2048\", \"tls\": \"\", \"sni\": \"\", \"alpn\": \"\", \"fp\": \"\"}" | base64 -w0)"
 echo "$vmess_link" >> tmp.txt
 vmess_argo_link="vmess://$(echo "{ \"v\": \"2\", \"ps\": \"$NAME-vmess-ws-argo\", \"add\": \"visa.cn\", \"port\": \"80\", \"id\": \"$UUID\", \"aid\": \"0\", \"scy\": \"auto\", \"net\": \"ws\", \"type\": \"none\", \"host\": \"$argodomain\", \"path\": \"/vmess-argo?ed=2048\", \"tls\": \"\"}" | base64 -w0)"
 echo "$vmess_argo_link" >> tmp.txt
