@@ -31,7 +31,7 @@ export ARGO_AUTH=${ARGO_AUTH:-''}
 
 
 read_ip() {
-    echo "\n"
+    echo
     cat ip.txt
     reading "请输入上面可选IP中的任意一个 (回车默认选择): " IP
     if [[ -z "$IP" ]]; then
@@ -44,7 +44,7 @@ read_ip() {
 }
 
 read_ym() {
-    echo "\n"
+    echo
     echo "--------------------"
     yellow "1. Cloudflare 默认域名，支持 PROXYIP 变量功能 (推荐)"
     yellow "2. serv00 默认域名 (推荐)"
@@ -66,7 +66,7 @@ read_ym() {
 }
 
 read_uuid() {
-    echo "\n"
+    echo
     reading "请输入UUID (回车默认生成): " UUID
     if [[ -z "$UUID" ]]; then
         UUID=$(uuidgen -r)
@@ -75,7 +75,7 @@ read_uuid() {
 }
 
 read_vless_port() {
-    echo "\n"
+    echo
     while true; do
         reading "请输入vless(reality)端口 (面板开放的tcp端口): " vless_port
         if [[ "$vless_port" =~ ^[0-9]+$ ]] && [ "$vless_port" -ge 1 ] && [ "$vless_port" -le 65535 ]; then
@@ -88,7 +88,7 @@ read_vless_port() {
 }
 
 read_vmess_port() {
-    echo "\n"
+    echo
     while true; do
         reading "请输入vmess端口 (面板开放的tcp端口): " vmess_port
         if [[ "$vmess_port" =~ ^[0-9]+$ ]] && [ "$vmess_port" -ge 1 ] && [ "$vmess_port" -le 65535 ]; then
@@ -101,7 +101,7 @@ read_vmess_port() {
 }
 
 read_hysteria2_port() {
-    echo "\n"
+    echo
     while true; do
         reading "请输入hysteria2端口 (面板开放的udp端口): " hysteria2_port
         if [[ "$hysteria2_port" =~ ^[0-9]+$ ]] && [ "$hysteria2_port" -ge 1 ] && [ "$hysteria2_port" -le 65535 ]; then
@@ -157,6 +157,50 @@ reading "\n清理所有进程将退出ssh连接，确定继续清理吗？【y/n
   case "$choice" in
     [Yy]) killall -9 -u $(whoami) ;;
        *) menu ;;
+  esac
+}
+
+get_ip_info() {
+    sn=$(echo "$HOSTNAME" | cut -d '.' -f 1 | tr -d 's')
+    mc=("$HOSTNAME" "cache$sn.serv00.com" "web$sn.serv00.com")
+    rm -rf $WORKDIR/ip.txt
+
+    for mc_item in "${mc[@]}"; do
+        response=$(curl -s "https://pl.amclub.us.kg/api/data?hostname=$mc_item")
+        
+        if [[ -z "$response" || "$response" == *unknown* ]]; then
+            # 如果API请求失败，尝试DNS解析
+            for ip in "${mc[@]}"; do
+                dig @8.8.8.8 +time=2 +short $ip >> $WORKDIR/ip.txt
+                sleep 1
+            done
+            break
+        else
+            # 使用 jq 解析JSON数据并获取第一个IP
+            ip=$(echo "$response" | jq -r '.[0].ip')
+            status=$(echo "$response" | jq -r '.[0].status')
+            
+            if [[ "$status" == "Unblocked" ]]; then
+                echo "$ip: 正常"  >> $WORKDIR/ip.txt
+            else
+                echo "$ip: 已墙"  >> $WORKDIR/ip.txt
+            fi
+        fi
+    done
+}
+
+system_initialize() {
+reading "\nserv00系统初始化，清理所有进程并清空所有安装应用，将退出ssh连接，确定继续清理吗？【y/n】: " choice
+  case "$choice" in
+    [Yy]) 
+    killall -9 -u $(whoami)
+    find ~ -type f -exec chmod 644 {} \; 2>/dev/null
+    find ~ -type d -exec chmod 755 {} \; 2>/dev/null
+    find ~ -type f -exec rm -f {} \; 2>/dev/null
+    find ~ -type d -empty -exec rmdir {} \; 2>/dev/null
+    find ~ -exec rm -rf {} \; 2>/dev/null
+    ;;
+    *) menu ;;
   esac
 }
 
@@ -545,37 +589,8 @@ purple "list.txt saved successfully"
 purple "Running done!"
 sleep 3 
 # rm -rf web bot npm boot.log config.json sb.log core tunnel.yml tunnel.json
-
 }
 
-get_ip_info() {
-    sn=$(echo "$HOSTNAME" | cut -d '.' -f 1 | tr -d 's')
-    mc=("$HOSTNAME" "cache$sn.serv00.com" "web$sn.serv00.com")
-    rm -rf $WORKDIR/ip.txt
-
-    for mc_item in "${mc[@]}"; do
-        response=$(curl -s "https://pl.amclub.us.kg/api/data?hostname=$mc_item")
-        
-        if [[ -z "$response" || "$response" == *unknown* ]]; then
-            # 如果API请求失败，尝试DNS解析
-            for ip in "${mc[@]}"; do
-                dig @8.8.8.8 +time=2 +short $ip >> $WORKDIR/ip.txt
-                sleep 1
-            done
-            break
-        else
-            # 使用 jq 解析JSON数据并获取第一个IP
-            ip=$(echo "$response" | jq -r '.[0].ip')
-            status=$(echo "$response" | jq -r '.[0].status')
-            
-            if [[ "$status" == "Unblocked" ]]; then
-                echo "$ip: 正常"  >> $WORKDIR/ip.txt
-            else
-                echo "$ip: 已墙"  >> $WORKDIR/ip.txt
-            fi
-        fi
-    done
-}
 
 #主菜单
 menu() {
@@ -589,21 +604,21 @@ menu() {
     echo -e "${green}AM科技 个人博客       ：${yellow}https://am.809098.xyz${re}"
     echo -e "${green}AM科技 TG交流群组     ：${yellow}https://t.me/AM_CLUBS${re}"
     echo -e "${green}AM科技 脚本视频教程   ：${yellow}https://youtu.be/6UZXHfc3zEU${re}"
-    echo "==============="
-    green "1. 安装sing-box(reality、vmess、hysteria2)"
-    echo "==============="
-    red "2. 卸载sing-box"
-    echo "==============="
-    green "3. 查看节点信息"
-    echo "==============="
+    echo   "==============="
+    green  "1. 安装sing-box(reality、vmess、hysteria2)"
+    echo   "==============="
+    red    "2. 卸载sing-box"
+    echo   "==============="
+    green  "3. 查看节点信息"
+    echo   "==============="
     yellow "4. 清理所有进程"
-    echo "==============="
-    red "5. serv00系统初始化"
-    echo "==============="
-    red "0. 退出脚本"
-    echo "==============="
-    echo "获取serv00服务器IP中......请稍等"
-    echo "--------------------"
+    echo   "==============="
+    red    "5. serv00系统初始化"
+    echo   "==============="
+    red    "0. 退出脚本"
+    echo   "==============="
+    echo   "获取serv00服务器IP中......请稍等"
+    echo   "--------------------"
     get_ip_info
     sn=$(hostname | awk -F '.' '{print $1}')
     green "serv00名称：$sn"
