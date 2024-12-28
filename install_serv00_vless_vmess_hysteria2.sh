@@ -606,7 +606,7 @@ menu() {
     echo -e "${green}AM科技 GitHub仓库     ：${yellow}https://github.com/amclubs${re}"
     echo -e "${green}AM科技 个人博客       ：${yellow}https://am.809098.xyz${re}"
     echo -e "${green}AM科技 TG交流群组     ：${yellow}https://t.me/AM_CLUBS${re}"
-    echo -e "${green}AM科技 脚本视频教程   ：${yellow}https://youtu.be/6UZXHfc3zEU${re}"
+    echo -e "${green}AM科技 脚本视频教程   ：${yellow}https://youtu.be/2B5yN09Wd_s${re}"
     echo   "==============="
     green  "1. 安装sing-box(reality、vmess、hysteria2)"
     echo   "==============="
