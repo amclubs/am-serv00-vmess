@@ -92,6 +92,10 @@ HTTPS：443，2053，2083，2087，2096，8443
 bash <(curl -Ls https://raw.githubusercontent.com/amclubs/am-serv00-vmess/main/install_serv00_vmess.sh)
 ```
 
+重启服务
+```
+bash <(curl -Ls https://raw.githubusercontent.com/amclubs/am-serv00-vmess/main/am_restart_vmess.sh)
+```
 
 # 
  <center><details><summary><strong> [点击展开] 赞赏支持 ~🧧</strong></summary>
