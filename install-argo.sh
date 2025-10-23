@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# ======================================================
 # install-argo.sh
-# 极简 Cloudflare Tunnel 多域名自动安装脚本
-# 支持 Token 或 JSON 凭证输入
-# 作者：数字套利*AM
+# Cloudflare Tunnel 多域名自动安装脚本 (支持 WS/gRPC/TCP)
+# 作者：数字套利 by AM 
+# ======================================================
 
 die(){ echo "✖ $*" >&2; exit 1; }
 info(){ echo "→ $*"; }
@@ -32,9 +33,9 @@ echo "╚═══════════════════════�
 echo -e "${re}"
 
 printf "%-18s ${yellow}%s${re}\n"  "${green}📺 YouTube频道："   "https://youtube.com/@am_clubs"
-printf "%-18s ${yellow}%s${re}\n"  "${green}💬 Telegram群："    "https://t.me/am_clubs"
+printf "%-18s ${yellow}%s${re}\n"  "${green}💬 TG交流群组："    "https://t.me/am_clubs"
 printf "%-18s ${yellow}%s${re}\n"  "${green}💻 GitHub仓库："    "https://github.com/amclubs"
-printf "%-18s ${yellow}%s${re}\n"  "${green}🌐 Blog博客网站："   "https://amclubss.com"
+printf "%-18s ${yellow}%s${re}\n"  "${green}🌐 个人博客："      "https://amclubss.com"
 
 echo -e "${cyan}──────────────────────────────────────────${re}"
 
@@ -51,7 +52,9 @@ for i in {1..1}; do
   sleep 0.2
 done
 
-# ========== 菜单逻辑 ==========
+# ===============================================================
+# 菜单逻辑
+# ===============================================================
 while true; do
   read -r -p "$(echo -e "${yellow}→ 请选择操作 (1/2/3): ${re}")" ACTION
   echo
@@ -170,6 +173,9 @@ install_cloudflared(){
 install_tools
 install_cloudflared
 
+# ===============================================================
+# 配置输入
+# ===============================================================
 # CLOUD_BIN 确认（优先使用已安装的）
 if command -v cloudflared >/dev/null 2>&1; then
   CLOUD_BIN="$(command -v cloudflared)"
@@ -224,17 +230,44 @@ for i in $(seq 1 "$NUM"); do
 						echo -e "${red}✖ 域名不能为空，请重新输入。${re}"
 				fi
 		done
-  read -r -p "请输入本地监听端口（默认 2053）： " PORT
-  PORT=${PORT:-2053}
-  read -r -p "请输入 WebSocket 路径（默认 /）： " WS_PATH
-  WS_PATH=${WS_PATH:-/}
-  [[ "$WS_PATH" != /* ]] && WS_PATH="/$WS_PATH"
-  read -r -p "请输入协议类型 (tcp/http/https，默认 http)： " PROTO
+  read -r -p "请输入本地监听端口（默认 443）： " PORT
+  PORT=${PORT:-443}
+  
+		echo
+  echo "请选择传输方式："
+  echo "1) WebSocket（默认）"
+  echo "2) gRPC"
+  echo "3) TCP"
+  read -r -p "选择传输类型 (1/2/3，默认 1)： " STREAM_TYPE
+  STREAM_TYPE=${STREAM_TYPE:-1}
+
+  case "$STREAM_TYPE" in
+    1)
+      STREAM_TYPE="ws"
+      read -r -p "请输入 WebSocket 路径（默认 /）： " WS_PATH
+      WS_PATH=${WS_PATH:-/}
+      [[ "$WS_PATH" != /* ]] && WS_PATH="/$WS_PATH"
+      ;;
+    2)
+      STREAM_TYPE="grpc"
+      read -r -p "请输入 gRPC ServiceName（默认 vmess-grpc）： " WS_PATH
+      WS_PATH=${WS_PATH:-vmess-grpc}
+      ;;
+    3)
+      STREAM_TYPE="tcp"
+      WS_PATH="-"
+      ;;
+  esac
+		
+  read -r -p "请输入协议类型 (http/https/tcp，默认 http)： " PROTO
   PROTO=${PROTO:-http}
   case "$PROTO" in tcp|http|https) ;; *) PROTO="http" ;; esac
-  MAPPINGS="${MAPPINGS}${DOMAIN},${PORT},${WS_PATH},${PROTO}\n"
+		MAPPINGS="${MAPPINGS}${DOMAIN},${PORT},${WS_PATH},${PROTO},${STREAM_TYPE}\n"
 done
 
+# ===============================================================
+# 凭证输入
+# ===============================================================
 echo
 echo "请选择凭证方式："
 echo "1) Cloudflare Token（推荐）"
@@ -292,36 +325,47 @@ else
   done
 fi
 
+# ===============================================================
 # 生成 config.yml
+# ===============================================================
 info "生成配置文件：$CONFIG_FILE"
 {
   echo "# Cloudflare Tunnel Auto Generated"
   echo
   echo "ingress:"
-  echo -e "$MAPPINGS" | while IFS=',' read -r HOST PORT PATH PROTO; do
-    [ -z "$HOST" ] && continue
-    case "$PROTO" in
-      tcp) SERVICE="tcp://localhost:${PORT}" ;;
-      http) SERVICE="http://localhost:${PORT}" ;;
-      https) SERVICE="https://localhost:${PORT}" ;;
-    esac
-    echo "  - hostname: ${HOST}"
-    echo "    service: ${SERVICE}"
-    echo "    originRequest:"
-    echo "      noTLSVerify: true"
-    echo "      httpHostHeader: ${HOST}"
-    if [ "$PROTO" = "http" ] || [ "$PROTO" = "https" ]; then
-      echo "      headers:"
-      echo "        Connection: Upgrade"
-      echo "        Upgrade: websocket"
-    fi
-    echo
-  done
+  echo -e "$MAPPINGS" | while IFS=',' read -r HOST PORT PATH PROTO STREAM_TYPE; do
+				[ -z "$HOST" ] && continue
+				case "$PROTO" in
+						tcp) SERVICE="tcp://localhost:${PORT}" ;;
+						http) SERVICE="http://localhost:${PORT}" ;;
+						https) SERVICE="https://localhost:${PORT}" ;;
+				esac
+
+				echo "  - hostname: ${HOST}"
+				echo "    service: ${SERVICE}"
+				echo "    originRequest:"
+				echo "      noTLSVerify: true"
+				echo "      httpHostHeader: ${HOST}"
+
+				# WebSocket 模式添加 headers
+				if [ "$STREAM_TYPE" = "ws" ] && { [ "$PROTO" = "http" ] || [ "$PROTO" = "https" ]; }; then
+						echo "      headers:"
+						echo "        Connection: Upgrade"
+						echo "        Upgrade: websocket"
+				fi
+
+				# gRPC 模式无需 headers
+				# TCP 模式无需 originRequest 修改
+				echo
+		done
   echo "  - service: http_status:404"
 } > "$CONFIG_FILE"
 chmod 600 "$CONFIG_FILE"
 info "✅ 配置文件写入完成。"
 
+# ===============================================================
+# systemd 服务
+# ===============================================================
 # ---------- 新版 cloudflared 兼容逻辑 ----------
 USE_NEW_MODE=false
 if "$CLOUD_BIN" tunnel run --help 2>&1 | grep -q -- '--token-file'; then
@@ -461,25 +505,44 @@ echo "重新执行此脚本(选择2)可卸载"
 echo "=========================================="
 echo -e "${re}"
 
-# final tip for each mapping
+# ===============================================================
+# 客户端提示
+# ===============================================================
 echo
 echo "===客户端配置与 Zero Trust 面板设置提示==="
-echo -e "$MAPPINGS" | while IFS=',' read -r DOMAIN PORT WS_PATH PROTO; do
+echo -e "$MAPPINGS" | while IFS=',' read -r DOMAIN PORT WS_PATH PROTO STREAM_TYPE; do
   [ -z "$DOMAIN" ] && continue
-  echo
-  echo "💡 域名: ${DOMAIN}"
-  echo "  ➤ Cloudflare Zero Trust 面板中添加 Service："
-  echo "      Service type: HTTP"
-  echo "      URL: http://localhost:${PORT}"
-  echo "      Public hostname: ${DOMAIN}"
-  echo
-  echo "  ➤ v2rayN/v2rayNG 客户端设置示例："
-  echo "      传输协议: WebSocket"
-  echo "      路径: ${WS_PATH}"
-  echo "      地址: ${DOMAIN}"
-  echo "      端口: 443 (Cloudflare)"
-  echo "      TLS: tls"
-  echo
+    echo
+				echo "💡 域名: ${DOMAIN}"
+				echo "  ➤ Cloudflare Zero Trust 面板中添加 Service："
+				if [ "$PROTO" = "tcp" ]; then
+						echo "      Service type: TCP"
+						echo "      URL: tcp://localhost:${PORT}"
+				else
+						echo "      Service type: HTTP"
+						echo "      URL: ${PROTO}://localhost:${PORT}"
+				fi
+				echo "      Public hostname: ${DOMAIN}"
+				echo
+
+				echo "  ➤ v2rayN/v2rayNG 客户端设置示例："
+				case "$STREAM_TYPE" in
+						ws)
+								echo "      传输协议: WebSocket"
+								echo "      路径: ${WS_PATH}"
+								;;
+						grpc)
+								echo "      传输协议: gRPC"
+								echo "      ServiceName: ${WS_PATH}"
+								;;
+						tcp)
+								echo "      传输协议: TCP"
+								;;
+				esac
+				echo "      地址: ${DOMAIN}"
+				echo "      端口: 443 (Cloudflare)"
+				echo "      TLS: tls"
+				echo
 done
 echo "=========================================="
 echo
